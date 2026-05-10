@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: waifu-catcher
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m waifu
+    healthCheckPath: /
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: GROUP_ID
+        sync: false
+      - key: CHARA_CHANNEL_ID
+        sync: false
+      - key: SUDO_IDS
+        sync: false
+      - key: RENDER
+        value: "true"

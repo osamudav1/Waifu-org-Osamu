@@ -1,0 +1,45 @@
+modules = ["python-3.12"]
+[agent]
+expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -m waifu"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[deployment]
+deploymentTarget = "vm"
+run = ["python", "-m", "waifu"]
+
+[userenv]
+
+[userenv.shared]
+BOT_USERNAME = "OtakuFlix_post_bot"
+DB_NAME = "waifu_bot"
+SUPPORT_CHAT = "BotifyX_support"
+UPDATE_CHAT = "BotifyX_Pro_Botz"
+PHOTO_URLS = "https://telegra.ph/file/b925c3985f0f325e62e17.jpg,https://telegra.ph/file/4211fb191383d895dab9d.jpg"
+DROP_INTERVAL_MINUTES = "15"
+DEFAULT_MSG_FREQUENCY = "5"
