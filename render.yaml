@@ -5,8 +5,11 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python -m waifu
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
+      # Render's default web-service port; the application also reads PORT.
+      - key: PORT
+        value: "10000"
       - key: BOT_TOKEN
         sync: false
       - key: MONGO_URI
