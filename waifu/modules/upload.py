@@ -117,6 +117,38 @@ def _rarity_keyboard() -> InlineKeyboardMarkup:
 
 # ── Conversation steps ────────────────────────────────────────────────────────
 
+async def reupload_start(update: Update, context: CallbackContext) -> int:
+    """/reupload <id> — replace an existing card from the beginning."""
+    if not _is_sudo(update.effective_user.id):
+        return ConversationHandler.END
+    if len(context.args) != 1:
+        await update.message.reply_text(
+            "Usage: <code>/reupload ID</code>", parse_mode=ParseMode.HTML)
+        return ConversationHandler.END
+
+    char_id = context.args[0].strip()
+    char = await collection.find_one({"id": char_id})
+    if not char:
+        await update.message.reply_text(
+            f"❌ Character <code>{escape(char_id)}</code> မတွေ့ဘူး။",
+            parse_mode=ParseMode.HTML,
+        )
+        return ConversationHandler.END
+
+    context.user_data.clear()
+    context.user_data["reupload_id"] = char_id
+    context.user_data["reupload_old_name"] = char.get("name", "?")
+    await update.message.reply_text(
+        f"♻️ <b>Reupload — ID {escape(char_id)}</b>\n"
+        f"လက်ရှိ: <b>{escape(char.get('name', '?'))}</b>\n\n"
+        "📸 Step 1/4 — Character ပုံ သို့မဟုတ် Video ပို့ပေး\n"
+        "ပြီးရင် Name → Anime → Rarity ကို အစကနေ ပြန်တောင်းမယ်။\n\n"
+        "❌ ပယ်ဖျက်ရန် /cancel",
+        parse_mode=ParseMode.HTML,
+    )
+    return WAIT_PHOTO
+
+
 async def upload_start(update: Update, context: CallbackContext) -> int:
     """/upload command — entry point."""
     if not _is_sudo(update.effective_user.id):
@@ -262,16 +294,18 @@ async def step_rarity(update: Update, context: CallbackContext) -> int:
             from waifu import LOGGER
             LOGGER.warning("FILE_STORE push failed, using original file_id: %s", store_err)
 
-    char_id = await _next_id()
+    reupload_id = context.user_data.get("reupload_id")
+    char_id = reupload_id or await _next_id()
     char = {
         "img_url":       img_url,
         "media_type":    media_type,
         "name":          name,
-        "anime":         anime,
-        "rarity":        rarity,
-        "id":            char_id,
+        "anime":          anime,
+        "rarity":         rarity,
+        "id":             char_id,
         "claimed_count": 0,
     }
+
 
     # ── Channel caption ────────────────────────────────────────────────────────
     u        = q.from_user
@@ -284,6 +318,32 @@ async def step_rarity(update: Update, context: CallbackContext) -> int:
     )
 
     try:
+        if reupload_id:
+            await collection.update_one(
+                {"id": reupload_id},
+                {
+                    "$set": {
+                        "img_url": img_url,
+                        "media_type": media_type,
+                        "name": name,
+                        "anime": anime,
+                        "rarity": rarity,
+                    },
+                    "$unset": {"video_url": ""},
+                },
+            )
+            invalidate_char_list()
+            await q.edit_message_text(
+                f"♻️ <b>Reupload ပြီးပြီ!</b>\n\n"
+                f"🌸 <b>{name}</b>\n"
+                f"📺 {anime}\n"
+                f"💎 {rarity}\n"
+                f"🆔 ID: <code>{char_id}</code>",
+                parse_mode=ParseMode.HTML,
+            )
+            context.user_data.clear()
+            return ConversationHandler.END
+
         await collection.insert_one(char)
         invalidate_char_list()
         await q.edit_message_text(
@@ -770,6 +830,7 @@ _SUDO_FILTER = _IsSudo()
 _upload_conv = ConversationHandler(
     entry_points=[
         CommandHandler("upload", upload_start),
+        CommandHandler("reupload", reupload_start),
         # Direct photo/video in PM — owner/sudo only
         MessageHandler(_MEDIA_FILTER & filters.ChatType.PRIVATE & _SUDO_FILTER, step_photo),
     ],
